@@ -17,47 +17,76 @@ class PDFToolsApp:
     def __init__(self, root):
         self.root = root
         self.root.title("PDF工具箱")
-        self.root.geometry("1100x850")  # 修改窗口大小
+        self.root.geometry("1100x850")  # 初始窗口大小
+        self.root.minsize(900, 600)     # 设置最小窗口大小
         self.root.configure(bg="#f0f0f0")
-        
+
+        # ====== 主滚动区域 ======
+        self.main_canvas = tk.Canvas(root, bg="#f0f0f0", highlightthickness=0)
+        self.main_canvas.pack(side="left", fill="both", expand=True)
+
+        self.v_scrollbar = ttk.Scrollbar(root, orient="vertical", command=self.main_canvas.yview)
+        self.v_scrollbar.pack(side="right", fill="y")
+
+        self.main_canvas.configure(yscrollcommand=self.v_scrollbar.set)
+
+        # 创建内容框架
+        self.content_frame = ttk.Frame(self.main_canvas)
+        self.content_window = self.main_canvas.create_window((0, 0), window=self.content_frame, anchor="nw")
+
+        # 让内容宽度随canvas变化
+        def resize_content(event):
+            canvas_width = event.width
+            self.main_canvas.itemconfig(self.content_window, width=canvas_width)
+        self.main_canvas.bind("<Configure>", resize_content)
+
+        # 内容高度自适应
+        self.content_frame.bind(
+            "<Configure>",
+            lambda e: self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
+        )
+
+        # 鼠标滚轮支持
+        self.main_canvas.bind_all("<MouseWheel>", lambda event: self.main_canvas.yview_scroll(int(-1*(event.delta/120)), "units"))
+
+        # ====== 以下内容全部替换 root 为 self.content_frame ======
         # 设置应用图标
         try:
             self.root.iconbitmap("pdf_icon.ico")
         except:
             pass
-        
+
         # 定义分割文件名变量
         self.split_filename_var = tk.StringVar()
         self.split_filename_var.set("分割文件")
-        
+
         # 当前加载的PDF
         self.current_pdf = None
         self.pages = []
         self.page_images = []
         self.selected_pages = set()
-        
+
         # 设置全局样式
         self.setup_styles()
-        
+
         # 创建标签页
-        self.notebook = ttk.Notebook(root)
-        
+        self.notebook = ttk.Notebook(self.content_frame)  # 这里改为 self.content_frame
         # 创建标签页
         self.merge_tab = ttk.Frame(self.notebook, padding=10)
         self.split_tab = ttk.Frame(self.notebook, padding=10)
-        
+
         self.notebook.add(self.merge_tab, text="合并PDF")
         self.notebook.add(self.split_tab, text="分割PDF")
-        
+
         self.notebook.pack(expand=True, fill="both", padx=10, pady=10)
-        
+
         # 初始化标签页
         self.setup_merge_tab()
         self.setup_split_tab()
-        
+
         # 状态栏
         self.status_var = tk.StringVar()
-        self.status_bar = ttk.Label(root, textvariable=self.status_var, relief="sunken", padding=(10, 5))
+        self.status_bar = ttk.Label(self.content_frame, textvariable=self.status_var, relief="sunken", padding=(10, 5))
         self.status_bar.pack(side="bottom", fill="x")
         self.update_status("就绪 - 选择操作开始")
 
